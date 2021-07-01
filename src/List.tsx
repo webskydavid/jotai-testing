@@ -1,7 +1,6 @@
 import './styles.css';
-import { atom, Provider, useAtom, PrimitiveAtom, WritableAtom } from 'jotai';
-import { selectAtom, splitAtom } from 'jotai/utils';
-import { FC, useEffect, useMemo } from 'react';
+import { atom, Provider, useAtom } from 'jotai';
+import { FC, useEffect } from 'react';
 
 interface Node {
   key: string;
@@ -29,110 +28,114 @@ const initVals = [
   { key: '1625121488854', name: 'Another obj', children: [] }
 ];
 
-const responseAtom = atom<Node[]>([]);
+const responseAtom = atom([]);
+const loadingAtom = atom(true);
 
 const initAtom = atom(null, (get, set) => {
   const run = async () => {
+    set(loadingAtom, true);
     await new Promise((res) => setTimeout(() => res(true), 1000));
     console.log('run');
-    set(responseAtom, initVals);
+    const treeData = (nodes) => {
+      return nodes.map((t) => {
+        return atom({ ...t, children: treeData(t.children) });
+      });
+    };
+    set(responseAtom, treeData(initVals));
+    set(loadingAtom, false);
   };
   run();
 });
 
 const selectedAtom = atom(null);
-const itemToAddAtom = atom(null);
 
-const Child: FC<{ a: Node; onClick: any; handleAdd: any }> = ({
+const Child: FC<{ a: any; onClick: any; handleAdd: any }> = ({
   a,
   onClick,
   handleAdd
 }) => {
-  const memAtom = useMemo(() => atom(a), [a]);
-  const [item, setItem] = useAtom<Node>(memAtom);
+  const [child] = useAtom<Node>(a);
   const [selected, setSelected] = useAtom(selectedAtom);
 
-  const change = () => {
-    setItem((prev) => {
-      console.log('prev', prev);
-
-      return { ...prev, name: 'fjheijfeifje' };
-    });
+  const add = () => {
+    setSelected(a);
   };
 
+  // const change = () => {
+  //   setChild((prev) => {
+  //     console.log('prev', prev);
+
+  //     return { ...prev, name: 'fjheijfeifje' };
+  //   });
+  // };
+
+  console.log('70', child);
+
   return (
-    <div
-      style={{
-        cursor: 'pointer',
-        padding: '4px 6px',
-        borderLeft: selected?.key === item.key ? '10px solid gray' : '1px solid gray',
-        marginBottom: 5
-      }}
-      onClick={() => setSelected(item)}
-      onDoubleClick={change}
-    >
-      {item.name} {`${memAtom}`}
-      <button onClick={() => onClick(item)}>DEL</button>
-    </div>
+    <>
+      <div
+        style={{
+          cursor: 'pointer',
+          padding: '4px 6px',
+          marginBottom: 5
+        }}
+        onClick={add}
+        // onDoubleClick={change}
+      >
+        <div
+          style={{ borderLeft: selected === a ? '10px solid gray' : '1px solid gray' }}
+        >
+          {child.name}
+          <button onClick={() => onClick(child)}>DEL</button>
+        </div>
+      </div>
+      <div style={{ paddingLeft: 20 }}>
+        {child?.children?.map((a) => (
+          <Child key={`${a}`} a={a} onClick={() => {}} handleAdd={() => {}} />
+        ))}
+      </div>
+    </>
   );
 };
 
 const Children: FC<{ data: any }> = ({ data }) => {
-  const memoList = useMemo(() => atom(data), [data]);
-  const [d, setD] = useAtom(memoList);
-  const [selected, setSelected] = useAtom(selectedAtom);
+  const [children, setChildren] = useAtom<Node[]>(data);
+  const [selected] = useAtom(selectedAtom);
+  const [, setSelected] = useAtom(selected || atom({}));
 
-  const handleDel = (node: any) => {
-    console.log('del', node);
-    setD((prev: Node[]) => prev.filter((p) => p.key !== node.key));
-  };
+  // const handleDel = (node: any) => {
+  //   console.log('del', node);
+  //   setD((prev: Node[]) => prev.filter((p) => p.key !== node.key));
+  // };
 
-  const handleAdd = () => {
-    console.log('test');
-    setD((prev) => [
-      ...prev,
-      { key: Date.now().toString(), name: 'New atom', children: [] }
-    ]);
-  };
-
-  return (
-    <div style={{ paddingLeft: 20 }}>
-      {d.map((node, index) => {
-        if (node.children.length === 0) {
-          return <Child key={index} a={node} onClick={handleDel} handleAdd={handleAdd} />;
-        }
-
-        return <Children key={index} data={node.children} />;
-      })}
-    </div>
-  );
-};
-
-const ListWrapper = () => {
-  const [list, add] = useAtom(responseAtom);
-  //const [list, remove] = useAtom(splitAtom<Node, unknown>(responseAtom));
-  const [, getData] = useAtom(initAtom);
-  const [toAdd, setToAdd] = useAtom(itemToAddAtom);
-  const [selected, setSelected] = useAtom(selectedAtom);
-
-  useEffect(() => {
-    getData();
-  }, [getData]);
+  // const handleAdd = () => {
+  //   console.log('test');
+  //   setChildren((prev) => [
+  //     ...prev,
+  //     { key: Date.now().toString(), name: 'New atom', children: [] }
+  //   ]);
+  // };
 
   const handleAdd = (type: string) => {
-    // add((prev) => [
-    //   ...prev,
-    //   { key: Date.now().toString(), name: 'fjeifjei', children: [] }
-    // ]);
+    console.log(111, selected);
 
-    setToAdd({ key: Date.now().toString(), name: type, children: [] });
     if (selected) {
-      setSelected((prev) => {
-        console.log(prev);
+      setSelected((p) => {
+        console.log('125', p);
+
         return {
-          ...prev,
-          children: [...prev.children, selected]
+          ...p,
+          children: [
+            ...p.children,
+            atom({ key: Date.now().toString(), name: type, children: [] })
+          ]
         };
+      });
+    } else {
+      setChildren((p) => {
+        console.log('125', p);
+
+        return [...p, atom({ key: Date.now().toString(), name: type, children: [] })];
       });
     }
   };
@@ -143,11 +146,25 @@ const ListWrapper = () => {
       <button onClick={() => handleAdd('object')}>Object</button>
       <button onClick={() => handleAdd('video')}>Video</button>
       <hr />
+      {children.map((node, index) => {
+        return <Child key={index} a={node} onClick={() => {}} handleAdd={() => {}} />;
+      })}
+    </div>
+  );
+};
+
+const ListWrapper = () => {
+  const [, getData] = useAtom(initAtom);
+  const [loading] = useAtom(loadingAtom);
+
+  useEffect(() => {
+    getData();
+  }, [getData]);
+
+  return (
+    <div>
       Wrapper
-      {/* {list.map((i, index) => (
-        <Child a={i} key={index} onClick={() => {}} />
-      ))} */}
-      <Children data={list} />
+      {!loading ? <Children data={responseAtom} /> : null}
     </div>
   );
 };
@@ -155,7 +172,7 @@ const ListWrapper = () => {
 export default function List() {
   return (
     <Provider>
-      <h4>List</h4>
+      <h3>Dynamic adding atom List</h3>
       <ListWrapper />
     </Provider>
   );
