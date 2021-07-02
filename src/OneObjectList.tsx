@@ -40,13 +40,13 @@ const responseAtom = atom<Node[]>([]);
 const loadingAtom = atom(true);
 const selectedAtom = atom(undefined);
 
-const addToSelectedAtom = atom(null, (get, set, update) => {
-  const mainAtom = get(selectedAtom);
-  const object = get(mainAtom);
-  console.log(object);
+// const addToSelectedAtom = atom(null, (get, set, update) => {
+//   const mainAtom = get(selectedAtom);
+//   const object = get(mainAtom);
+//   console.log(object);
 
-  set(selectedAtom, set(mainAtom, { ...object, children: [...object.children, update] }));
-});
+//   set(selectedAtom, set(mainAtom, { ...object, children: [...object.children, update] }));
+// });
 
 const initAtom = atom(
   (get) => {
@@ -69,12 +69,17 @@ const Child: FC<{ childAtom: PrimitiveAtom<Node>; component: any }> = ({
   component
 }) => {
   const Component = component;
-  const c = useMemo(() => childAtom, [childAtom]);
-  const [child] = useAtom(c);
+  const [child] = useAtom(childAtom);
   const childrenFocusAtom = focusAtom(childAtom, (o) => o.path('children'));
-  const [select, setSelect] = useAtom(selectedAtom);
+  // const [, setSelect] = useAtom(selectedAtom);
 
-  console.log(` ${childAtom} -> selected: ${select}`);
+  ///console.log(` ${c} -> selected: ${select}`);
+  const handleSelect = () => {
+    console.log(`${childAtom}`);
+    // setSelect(childAtom);
+  };
+
+  console.log('Child', `${childAtom}`);
 
   return (
     <>
@@ -82,12 +87,12 @@ const Child: FC<{ childAtom: PrimitiveAtom<Node>; component: any }> = ({
         style={{
           cursor: 'pointer',
           padding: '4px 6px',
-          marginBottom: 5,
-          borderLeft: select === childAtom ? '10px solid red' : ''
+          marginBottom: 5
+          // borderLeft: select === c ? '10px solid red' : ''
         }}
       >
         <div>
-          {child.name} <button onClick={() => setSelect(childAtom)}>SELECT</button>
+          {child.name} <button onClick={handleSelect}>SELECT</button>
         </div>
       </div>
       <div style={{ paddingLeft: 20 }}>
@@ -98,12 +103,9 @@ const Child: FC<{ childAtom: PrimitiveAtom<Node>; component: any }> = ({
 };
 
 const Children: FC<{ children: PrimitiveAtom<Node[]> }> = ({ children }) => {
-  const c = useMemo(() => children, [children]);
-  const [, setChildren] = useAtom(c);
-  // Re-render and change atom reference !!!
+  const [, setChildren] = useAtom(children);
   const childrenSplitAtom = splitAtom(children);
-  const d = useMemo(() => childrenSplitAtom, [childrenSplitAtom]);
-  const [childrenList] = useAtom(d);
+  const [childrenList] = useAtom(childrenSplitAtom);
 
   const add = () => {
     setChildren((s) => [
@@ -115,6 +117,8 @@ const Children: FC<{ children: PrimitiveAtom<Node[]> }> = ({ children }) => {
       }
     ]);
   };
+
+  console.log('Children', `${children}`);
 
   return (
     <div>
@@ -128,13 +132,15 @@ const Children: FC<{ children: PrimitiveAtom<Node[]> }> = ({ children }) => {
 const ListWrapper = () => {
   const [, getData] = useAtom(initAtom);
   const [loading] = useAtom(loadingAtom);
-  //const [response, setResponse] = useAtom(responseAtom);
+  const [response, setResponse] = useAtom(responseAtom);
   //const select = useAtomValue(selectedAtom);
   //const [, addToSelected] = useAtom(addToSelectedAtom);
 
   useEffect(() => {
     getData();
   }, [getData]);
+
+  console.log('ListWrapper', `${responseAtom}`);
 
   const add = (path) => {
     // const getPath = (data: any[], path: string) => {
@@ -148,15 +154,15 @@ const ListWrapper = () => {
     //     return f;
     //   });
     // };
-    // if (select) {
-    //   addToSelected({ key: '1625121488854', name: 'Another obj', children: [] });
-    // } else {
-    //   setResponse((d) => {
-    //     // const dd = getPath(d, path);
-    //     // console.log(dd);
-    //     return [...d, { key: '1625121488854', name: 'Another obj', children: [] }];
-    //   });
-    // }
+    if (false) {
+      //addToSelected({ key: '1625121488854', name: 'Another obj', children: [] });
+    } else {
+      setResponse((d) => {
+        // const dd = getPath(d, path);
+        // console.log(dd);
+        return [...d, { key: '1625121488854', name: 'Another obj', children: [] }];
+      });
+    }
   };
 
   return (
