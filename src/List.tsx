@@ -1,6 +1,7 @@
 import './styles.css';
-import { atom, Provider, useAtom } from 'jotai';
-import { FC, useEffect } from 'react';
+import { atom, Provider, useAtom, Atom, PrimitiveAtom } from 'jotai';
+import { atomFamily, selectAtom, useAtomCallback } from 'jotai/utils';
+import { FC, ReactNode, useCallback, useEffect } from 'react';
 
 interface Node {
   key: string;
@@ -28,48 +29,45 @@ const initVals = [
   { key: '1625121488854', name: 'Another obj', children: [] }
 ];
 
-const responseAtom = atom([]);
+const responseAtom = atom<Atom<Node>[]>([]);
 const loadingAtom = atom(true);
+const selectedAtom = atom<Atom<Node | undefined>>(atom(undefined));
 
 const initAtom = atom(null, (get, set) => {
   const run = async () => {
     set(loadingAtom, true);
-    await new Promise((res) => setTimeout(() => res(true), 1000));
-    console.log('run');
-    const treeData = (nodes) => {
-      return nodes.map((t) => {
-        return atom({ ...t, children: treeData(t.children) });
-      });
+    await new Promise((res) => setTimeout(() => res(true), 600));
+
+    const treeData = (nodes: any) => {
+      const data: any = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.children) {
+          n.children = atom(treeData(n.children));
+        }
+        data.push(atom(n));
+      }
+      return data;
     };
+
     set(responseAtom, treeData(initVals));
     set(loadingAtom, false);
   };
   run();
 });
 
-const selectedAtom = atom(null);
-
-const Child: FC<{ a: any; onClick: any; handleAdd: any }> = ({
+const Child: FC<{ a: PrimitiveAtom<Node>; handleRemove: any; component: any }> = ({
   a,
-  onClick,
-  handleAdd
+  component,
+  handleRemove
 }) => {
+  const Component = component;
   const [child] = useAtom<Node>(a);
   const [selected, setSelected] = useAtom(selectedAtom);
 
-  const add = () => {
+  const select = () => {
     setSelected(a);
   };
-
-  // const change = () => {
-  //   setChild((prev) => {
-  //     console.log('prev', prev);
-
-  //     return { ...prev, name: 'fjheijfeifje' };
-  //   });
-  // };
-
-  console.log('70', child);
 
   return (
     <>
@@ -79,92 +77,111 @@ const Child: FC<{ a: any; onClick: any; handleAdd: any }> = ({
           padding: '4px 6px',
           marginBottom: 5
         }}
-        onClick={add}
-        // onDoubleClick={change}
       >
         <div
-          style={{ borderLeft: selected === a ? '10px solid gray' : '1px solid gray' }}
+          style={{
+            borderLeft: selected === a ? '10px solid gray' : '1px solid gray'
+          }}
         >
           {child.name}
-          <button onClick={() => onClick(child)}>DEL</button>
+          <button onClick={() => handleRemove(a)}>DEL</button>
+          <button onClick={select}>SELECT</button>
         </div>
       </div>
       <div style={{ paddingLeft: 20 }}>
-        {child?.children?.map((a) => (
-          <Child key={`${a}`} a={a} onClick={() => {}} handleAdd={() => {}} />
-        ))}
+        {child?.children ? <Component data={child?.children} /> : null}
+        {/* {child?.children?.map((a) => (
+          <Child key={`${a}`} a={a} onClick={() => {}} />
+        ))} */}
       </div>
     </>
   );
 };
 
-const Children: FC<{ data: any }> = ({ data }) => {
-  const [children, setChildren] = useAtom<Node[]>(data);
-  const [selected] = useAtom(selectedAtom);
-  const [, setSelected] = useAtom(selected || atom({}));
+const Children: FC<{ data: Atom<Atom<Node>[]> }> = ({ data }) => {
+  const [children, setChildren] = useAtom(data);
 
-  // const handleDel = (node: any) => {
-  //   console.log('del', node);
-  //   setD((prev: Node[]) => prev.filter((p) => p.key !== node.key));
-  // };
+  const handleRemove = (a) => {
+    console.log(children);
 
-  // const handleAdd = () => {
-  //   console.log('test');
-  //   setChildren((prev) => [
-  //     ...prev,
-  //     { key: Date.now().toString(), name: 'New atom', children: [] }
-  //   ]);
-  // };
-
-  const handleAdd = (type: string) => {
-    console.log(111, selected);
-
-    if (selected) {
-      setSelected((p) => {
-        console.log('125', p);
-
-        return {
-          ...p,
-          children: [
-            ...p.children,
-            atom({ key: Date.now().toString(), name: type, children: [] })
-          ]
-        };
-      });
-    } else {
-      setChildren((p) => {
-        console.log('125', p);
-
-        return [...p, atom({ key: Date.now().toString(), name: type, children: [] })];
-      });
-    }
+    setChildren((c) => {
+      return c.filter((f) => f !== a);
+    });
   };
 
   return (
     <div>
-      <button onClick={() => handleAdd('light')}>Light</button>
-      <button onClick={() => handleAdd('object')}>Object</button>
-      <button onClick={() => handleAdd('video')}>Video</button>
-      <hr />
       {children.map((node, index) => {
-        return <Child key={index} a={node} onClick={() => {}} handleAdd={() => {}} />;
+        return (
+          <Child component={Children} key={index} a={node} handleRemove={handleRemove} />
+        );
       })}
     </div>
   );
 };
 
+const AddObject = () => {
+  const [, setChildren] = useAtom(responseAtom);
+  const [selected, setSelected] = useAtom(selectedAtom);
+
+  const handleAdd = (type: string) => {
+    if (selected) {
+    } else {
+      setChildren((s) => {
+        return [
+          ...s,
+          atom({ key: Date.now().toString(), name: type, children: atom([]) })
+        ];
+      });
+    }
+  };
+
+  return (
+    <>
+      <button onClick={() => handleAdd('light')}>Light</button>
+      <button onClick={() => handleAdd('object')}>Object</button>
+      <button onClick={() => handleAdd('video')}>Video</button>
+      <hr />
+    </>
+  );
+};
+
+const event = new CustomEvent('foo', { detail: 'foo' });
+
+const cherryGL = {
+  changeValues: (data: any) => new CustomEvent('foo', { detail: data })
+};
+
 const ListWrapper = () => {
   const [, getData] = useAtom(initAtom);
   const [loading] = useAtom(loadingAtom);
+  const [selected] = useAtom(selectedAtom);
 
   useEffect(() => {
     getData();
   }, [getData]);
 
+  useEffect(() => {
+    window.addEventListener('foo', (e) => console.log(e));
+  }, []);
+
+  const run = () => {
+    window.dispatchEvent(cherryGL.changeValues('fwefe'));
+    window.dispatchEvent(cherryGL.changeValues('1'));
+    window.dispatchEvent(cherryGL.changeValues('2'));
+    window.dispatchEvent(cherryGL.changeValues('3'));
+  };
+
   return (
     <div>
-      Wrapper
-      {!loading ? <Children data={responseAtom} /> : null}
+      <strong>Wrapper</strong>
+      <AddObject />
+      {!loading ? <Children data={responseAtom} /> : 'Loading...'}
+      <button onClick={run}>fewfe</button>
+      <div>
+        <h4>inspector</h4>
+        <pre>{JSON.stringify(selected?.key)}</pre>
+      </div>
     </div>
   );
 };

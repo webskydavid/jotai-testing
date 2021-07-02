@@ -30,15 +30,16 @@ const listAtom = atom<Atom<Node>[]>([
 const selectedAtom = atom<Atom<Node | undefined>>(atom(undefined));
 
 const StaticChild: FC<{ a: Atom<Node> }> = ({ a }) => {
-  const [child] = useAtom(a);
+  const [child, setChild] = useAtom(a);
   const [selected, setSelected] = useAtom(selectedAtom);
 
   return (
     <>
       <div style={{ borderLeft: a === selected ? '10px solid green' : '' }}>
         {child.key} {`${a}`} selected: {`${selected}`}
-        {/* <button onClick={handleAdd}>Add</button> */}
         <button onClick={() => setSelected(a)}>Select</button>
+        <button onClick={() => setChild(null)}>Rename</button>
+        <button style={{ backgroundColor: '#dd0000' }}>Del</button>
       </div>
       <div style={{ paddingLeft: 20 }}>
         {child?.children?.map((a) => (
@@ -58,9 +59,7 @@ const List = () => {
   const [selAtom] = useAtom<Atom<Node | undefined>>(selectedAtom);
   const [selected, setSelected] = useAtom(selAtom);
 
-  const handleAdd = useCallback(() => {
-    console.log(1);
-
+  const handleAdd = () => {
     if (selected) {
       setSelected((p: Node) => {
         console.log('p', p);
@@ -77,9 +76,7 @@ const List = () => {
         return [...p, atom({ key: Date.now().toString(), name: 'ffwfwe', children: [] })];
       });
     }
-  }, [setList, selected, setSelected]);
-
-  console.log(list);
+  };
 
   return (
     <div>
