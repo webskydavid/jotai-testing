@@ -4,6 +4,7 @@ import List from './List';
 import StaticList from './StaticList';
 import DynamicList from './DynamicList';
 import ObjectList from './ObjectList';
+import OneObjectList from './OneObjectList';
 
 export default function App() {
   return (
@@ -12,9 +13,11 @@ export default function App() {
       <hr />
       {/* <StaticList /> */}
       <hr />
-      <DynamicList />
+      {/* <DynamicList /> */}
       <hr />
       {/* <ObjectList /> */}
+      <hr />
+      <OneObjectList />
     </div>
   );
 }
