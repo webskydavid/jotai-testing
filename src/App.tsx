@@ -15,9 +15,9 @@ export default function App() {
       <hr />
       {/* <DynamicList /> */}
       <hr />
-      {/* <ObjectList /> */}
+      <ObjectList />
       <hr />
-      <OneObjectList />
+      {/* <OneObjectList /> */}
     </div>
   );
 }

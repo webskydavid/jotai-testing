@@ -31,7 +31,7 @@ const initVals = [
 
 const responseAtom = atom<Atom<Node>[]>([]);
 const loadingAtom = atom(true);
-const selectedAtom = atom<Atom<Node | undefined>>(atom(undefined));
+const selectedAtom = atom<Atom<Node | undefined> | undefined>(undefined);
 
 const initAtom = atom(null, (get, set) => {
   const run = async () => {
@@ -69,6 +69,8 @@ const Child: FC<{ a: PrimitiveAtom<Node>; handleRemove: any; component: any }> =
     setSelected(a);
   };
 
+  const move = () => {};
+
   return (
     <>
       <div
@@ -86,6 +88,7 @@ const Child: FC<{ a: PrimitiveAtom<Node>; handleRemove: any; component: any }> =
           {child.name}
           <button onClick={() => handleRemove(a)}>DEL</button>
           <button onClick={select}>SELECT</button>
+          <button onClick={move}>MOVE</button>
         </div>
       </div>
       <div style={{ paddingLeft: 20 }}>
@@ -120,12 +123,26 @@ const Children: FC<{ data: Atom<Atom<Node>[]> }> = ({ data }) => {
   );
 };
 
+const addToSelectedAtom = atom(null, (get, set, update) => {
+  const mainAtom = get(selectedAtom);
+  const object = get(mainAtom);
+  const array = get(object?.children);
+
+  set(object?.children, [...array, atom(update)]);
+  set(mainAtom, { ...object, children: object?.children });
+  set(selectedAtom, mainAtom);
+});
+
 const AddObject = () => {
   const [, setChildren] = useAtom(responseAtom);
-  const [selected, setSelected] = useAtom(selectedAtom);
+  const [selected] = useAtom(selectedAtom);
+  const [, addToSelected] = useAtom(addToSelectedAtom);
 
   const handleAdd = (type: string) => {
+    console.log(selected);
+
     if (selected) {
+      addToSelected({ key: Date.now().toString(), name: type, children: atom([]) });
     } else {
       setChildren((s) => {
         return [

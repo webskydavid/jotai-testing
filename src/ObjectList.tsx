@@ -6,28 +6,62 @@ import { FC, ReactNode, useCallback, useEffect } from 'react';
 
 interface Node {
   key: string;
+  path: number[];
   name: string;
   children: Node[];
 }
 
-const initVals = {
-  '1625121488850': {
+const initVals: Node[] = [
+  {
     key: '1625121488850',
+    path: [0],
     name: 'Asset',
-    children: {
-      '1625121488851': {
+    children: [
+      {
         key: '1625121488851',
+        path: [0, 0],
         name: 'Some obj',
-        children: {}
+        children: [
+          {
+            key: '1625121488855',
+            path: [0, 0, 0],
+            name: 'Some obj 1',
+            children: []
+          },
+          {
+            key: '1625121488856',
+            path: [0, 0, 1],
+            name: 'Some obj 2',
+            children: []
+          },
+          {
+            key: '1625121488857',
+            path: [0, 0, 2],
+            name: 'Some obj 3',
+            children: []
+          },
+          {
+            key: '1625121488858',
+            path: [0, 0, 3],
+            name: 'Some obj 4',
+            children: []
+          }
+        ]
+      },
+      {
+        key: '1625121488852',
+        path: [0, 1],
+        name: 'New Obj',
+        children: []
       }
-    }
+    ]
   },
-  '1625121488854': { key: '1625121488854', name: 'Another obj', children: {} }
-};
+  { key: '1625121488854', path: [1], name: 'Another obj', children: [] }
+];
 
-const responseAtom = atom({});
+const responseAtom = atom<Node[]>([]);
 const loadingAtom = atom(true);
-const selectedAtom = atom(undefined);
+const selectedNodeAtom = atom<Node | null>(null);
 
 const initAtom = atom(
   (get) => {
@@ -38,34 +72,131 @@ const initAtom = atom(
       set(loadingAtom, true);
       await new Promise((res) => setTimeout(() => res(true), 600));
 
-      const treeData = (nodes: any) => {
-        const data: any = [];
-        const keys = Object.keys(nodes);
-        for (let i = 0; i < keys.length; i++) {
-          const key = keys[i];
-          if (nodes[key].children) {
-            nodes[key].children = treeData(nodes[key].children);
-          }
-          data.push(key);
-        }
-
-        return data;
-      };
-
-      set(responseAtom, Object.keys(initVals));
+      set(responseAtom, initVals);
       set(loadingAtom, false);
     };
     run();
   }
 );
 
-const Child: FC<{ childAtom: PrimitiveAtom<Node>; component: any }> = ({
-  childAtom,
-  component
-}) => {
+const addNodeAtom = atom(null, (get, set, update: string) => {
+  const list = get(responseAtom);
+  const selected = get(selectedNodeAtom);
+  if (selected) {
+    const deep = (data: any) => {
+      for (let i = 0; i < data.length; i++) {
+        if (data[i].children.length) {
+          deep(data[i].children);
+        }
+        if (data[i].key === selected.key) {
+          data[i].children = [
+            ...data[i].children,
+            {
+              key: Date.now().toString(),
+              path: [...data[i].path, data[i].children.length],
+              name: update,
+              children: []
+            }
+          ];
+          return;
+        }
+      }
+    };
+    deep(list);
+  } else {
+    list.push({
+      key: Date.now().toString(),
+      path: [list.length],
+      name: update,
+      children: []
+    });
+  }
+  set(responseAtom, [...list]);
+});
+
+const removeNodeAtom = atom(null, (get, set, update: Node) => {
+  const list = get(responseAtom);
+  const selected = get(selectedNodeAtom);
+  const deep = (data: Node[], level: number, c: number[]) => {
+    const newArr: Node[] = [];
+    let count = 0;
+    for (let i = 0; i < data.length; i++) {
+      const element = data[i];
+      if (level + 1 === update.path.length && update.path[level] === i) {
+        console.log('TO REMOVE - last', [...c, i]);
+      } else {
+        newArr.push({
+          ...element,
+          path: [...c, count],
+          children: deep(element.children, level + 1, [...c, count])
+        });
+        count++;
+      }
+    }
+
+    return newArr;
+  };
+  const d = deep(list, 0, []);
+  set(selectedNodeAtom, selected?.key === update.key ? null : selected);
+  set(responseAtom, d);
+});
+
+const moveNodeAtom = atom(null, (get, set, update: Node) => {
+  const list = get(responseAtom);
+  const selected = get(selectedNodeAtom);
+
+  console.log(selected, update);
+
+  const deep = (data: Node[], level: number, c: number[]) => {
+    const newArr: Node[] = [];
+    let count = 0;
+    let count1 = 0;
+
+    for (let i = 0; i < data.length; i++) {
+      const element = data[i];
+      if (level + 1 === selected?.path.length && selected.path[level] === i) {
+        console.log('TO REMOVE - last', [...c, i]);
+      } else {
+        newArr.push({
+          ...element,
+          path: [...c, count],
+          children: deep(element.children, level + 1, [...c, count])
+        });
+
+        count++;
+      }
+      if (level + 1 !== update?.path.length && update.path[level] !== i) {
+        console.log('x', update, [...c, count1]);
+        // newArr.push({
+        //   ...element,
+        //   path: [...c, count1],
+        //   children: deep(element.children, level + 1, [...c, count1])
+        // });
+        count1++;
+      }
+    }
+
+    return newArr;
+  };
+  const d = deep(list, 0, []);
+  set(selectedNodeAtom, null);
+  set(responseAtom, d);
+});
+
+const Child: FC<{ child: Node; component: any }> = ({ child, component }) => {
   const Component = component;
-  const [child] = useAtom(childAtom);
-  const childrenFocusAtom = focusAtom(childAtom, (o) => o.path('children'));
+  const [selected, setSelected] = useAtom<Node | null>(selectedNodeAtom);
+  const [, removeNode] = useAtom(removeNodeAtom);
+
+  const [, moveNode] = useAtom(moveNodeAtom);
+
+  const handleRemove = () => {
+    removeNode(child);
+  };
+
+  const handleMove = () => {
+    moveNode(child);
+  };
 
   return (
     <>
@@ -73,43 +204,68 @@ const Child: FC<{ childAtom: PrimitiveAtom<Node>; component: any }> = ({
         style={{
           cursor: 'pointer',
           padding: '4px 6px',
-          marginBottom: 5
+          marginBottom: 5,
+          border: selected?.key === child.key ? '1px solid gray' : '',
+          pointerEvents: 'auto'
         }}
       >
-        <div>{initVals[child]}</div>
+        <div>
+          <span>
+            {child.path.join(',')} {'  '}
+            {child.name} {child.key}
+          </span>
+
+          {selected && selected.key !== child.key ? (
+            <button style={{ pointerEvents: 'auto' }} onClick={handleMove}>
+              MOVE
+            </button>
+          ) : null}
+          <button
+            style={{ pointerEvents: 'auto' }}
+            onClick={() =>
+              setSelected((s: Node) => (s?.key === child.key ? null : child))
+            }
+          >
+            SELECT
+          </button>
+          {child.children.length ? null : (
+            <button style={{ pointerEvents: 'auto' }} onClick={handleRemove}>
+              REMOVE
+            </button>
+          )}
+        </div>
       </div>
       <div style={{ paddingLeft: 20 }}>
-        {child?.children ? <Component children={Object.keys(childrenFocusAtom)} /> : null}
+        {child?.children ? <Component children={child?.children} /> : null}
       </div>
     </>
   );
 };
 
-const Children: FC<{ children: PrimitiveAtom<Node[]> }> = ({ children }) => {
-  const [, setChildren] = useAtom(children);
-  const childrenSplitAtom = splitAtom(children);
-  const [childrenList] = useAtom(childrenSplitAtom);
+const Children: FC<{ children: Node[] }> = ({ children }) => {
+  return (
+    <div>
+      {children.map((node, index) => {
+        return <Child component={Children} key={node.key} child={node} />;
+      })}
+    </div>
+  );
+};
 
-  const add = () => {
-    setChildren((s) => [
-      ...s,
-      {
-        key: '1625121488851',
-        name: 'Some obj',
-        children: []
-      }
-    ]);
+const AddObject = () => {
+  const [, addNode] = useAtom(addNodeAtom);
+
+  const handleAdd = (type: string) => {
+    addNode(type);
   };
 
   return (
-    <div>
-      <button onClick={add}>Add</button>
-      {childrenList.map((c, index) => {
-        console.log(c);
-
-        return <Child component={Children} key={index} childAtom={c} />;
-      })}
-    </div>
+    <>
+      <button onClick={() => handleAdd('light')}>Light</button>
+      <button onClick={() => handleAdd('object')}>Object</button>
+      <button onClick={() => handleAdd('video')}>Video</button>
+      <hr />
+    </>
   );
 };
 
@@ -124,8 +280,8 @@ const ListWrapper = () => {
   return (
     <div>
       <strong>Wrapper</strong>
-
-      {!loading ? <Children children={responseAtom} /> : 'Loading...'}
+      <AddObject />
+      {!loading ? <Children children={init} /> : 'Loading...'}
     </div>
   );
 };
@@ -133,7 +289,7 @@ const ListWrapper = () => {
 export default function ObjectList() {
   return (
     <Provider>
-      <h3>Dynamic creating atom in components List</h3>
+      <h3>Big object one atom components List</h3>
       <ListWrapper />
     </Provider>
   );
